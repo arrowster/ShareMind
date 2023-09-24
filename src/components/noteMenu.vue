@@ -4,7 +4,7 @@
       <v-btn class="mt-2 mb-2" @click="createNewNote">새 노트 생성하기</v-btn>
     </v-row>
     <v-row>
-      <v-card class="" >
+      <v-card>
         <v-card-text>
           혹시 초대 받으셨나요?
         </v-card-text>
