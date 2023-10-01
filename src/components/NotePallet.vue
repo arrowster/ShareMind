@@ -11,7 +11,7 @@
         <v-btn value="vector" icon @click="lineMode"><v-icon>mdi-vector-line</v-icon>
           <v-tooltip activator="parent" location="top">직선</v-tooltip>
         </v-btn>
-        <v-btn value="format" icon ><v-icon>mdi-format-text</v-icon>
+        <v-btn value="format" icon @click="textMode"><v-icon>mdi-format-text</v-icon>
           <v-tooltip activator="parent" location="top">텍스트</v-tooltip>
         </v-btn>
       </v-btn-toggle>
@@ -72,6 +72,9 @@ export default {
     },
     lineMode(){
       this.$emit('sendMode', 2)
+    },
+    textMode(){
+      this.$emit('sendMode', 3)
     },
   },
 }
