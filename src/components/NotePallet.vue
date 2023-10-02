@@ -25,7 +25,8 @@
       <v-btn icon><v-icon>mdi-account-group</v-icon>
         <v-tooltip activator="parent" location="top">접속한 유저 확인</v-tooltip>
       </v-btn>
-      <v-btn icon><v-icon>mdi-upload</v-icon>
+      <input type="file" ref="fileInput" class="file-upload-input" @change="uploadImg" accept=".png, .jpg">
+      <v-btn icon @click="uploadImg"><v-icon>mdi-upload</v-icon>
         <v-tooltip activator="parent" location="top">외부파일 업로드</v-tooltip>
       </v-btn>
     </v-toolbar>
@@ -76,10 +77,20 @@ export default {
     textMode(){
       this.$emit('sendMode', 3)
     },
+    uploadImg(){
+      console.log("click")
+      const fileInput = this.$refs.fileInput;
+      fileInput.click();
+      const file = fileInput.files[0];
+
+      this.$emit('imgFile', file)
+    },
   },
 }
 </script>
 
-<style scoped>
-
+<style lang="scss" scoped>
+  .file-upload-input {
+    display:none;
+  }
 </style>

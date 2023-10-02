@@ -5,6 +5,7 @@
         @sendMode="selectMode"
         @setColor="setColor"
         @setPointSize="setPointSize"
+        @imgFile="handleFileUpload"
       />
     </v-row>
     <v-row class="d-flex justify-center">
@@ -179,6 +180,32 @@
       },
       setPointSize(size){
         this.pointSize = size
+      },
+      handleFileUpload(file) {
+        const canvas = this.$refs.canvas;
+        const ctx = canvas.getContext("2d");
+
+        if (file) {
+          const reader = new FileReader();
+
+          reader.onload = (e) => {
+            const img = new Image();
+            const result = e.target.result;
+
+            if (typeof result === "string") {
+              img.src = result;
+            } else if (result instanceof ArrayBuffer) {
+              console.error("이미지 파일이 아닙니다.");
+            }
+
+            img.onload = () => {
+              // Canvas에 이미지 그리기
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            }
+          }
+          reader.readAsDataURL(file);
+        }
       },
       test(){
 
