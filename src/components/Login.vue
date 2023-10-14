@@ -6,7 +6,7 @@
         @submit.prevent="onSubmit"
       >
         <v-text-field
-          v-model="email"
+          v-model="user.id"
           :readonly="loading"
           :rules="[required]"
           class="mb-2"
@@ -15,7 +15,7 @@
         ></v-text-field>
 
         <v-text-field
-          v-model="password"
+          v-model="user.password"
           :readonly="loading"
           clearable
           label="Password"
@@ -29,12 +29,12 @@
           type="submit"
           variant="elevated"
         >
-          Sign In
+          log in
         </v-btn>
       </v-form>
       <hr class="mt-2 mb-2">
       <div class="d-flex justify-center mb-2">
-        <v-btn>구글로 로그인</v-btn>
+        <v-btn @click="testVerify">구글로 로그인(토큰 test)</v-btn>
       </div>
     <div class="d-flex justify-end registerFont ml-6">
       <span class="font-weight-thin">아직 Share Mind 회원이 아니신가요?</span>
@@ -44,12 +44,17 @@
 </template>
 
 <script>
+import axios from 'axios'
+
 export default {
   name: "Login",
   data: () => ({
     form: false,
-    email: null,
-    password: null,
+    user:{
+      id: "",
+      password: "",
+      token: "",
+    },
     loading: false,
   }),
 
@@ -60,6 +65,39 @@ export default {
       if (!this.form) return
       this.loading = true
       setTimeout(() => (this.loading = false), 2000)
+
+      axios.post('/api/users/login',{ ...this.user})
+        .then((res) => {
+          if (res.data.success === true){
+            alert(JSON.stringify(res.data))
+
+            const token = res.data.token;
+            localStorage.setItem('token', token);
+            this.$router.push('/')
+
+          } else {
+            throw Error("err")
+          }
+        }).catch(()=>{
+          alert('Login failed! please check your email or password');
+      })
+    },
+    testVerify() {
+      const token = localStorage.getItem('token')
+      axios.get('/api/users/token-verify', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }).then((res) => {
+        if (res.data.success === true) {
+          alert(JSON.stringify(res.data));
+        } else {
+          throw Error("error!!")
+        }
+      }).catch(() => {
+        alert('token error.. plz login again');
+        //todo: login 화면으로 이동
+      });
     },
     required (v) {
       return !!v || '이메일을 입력해주세요'

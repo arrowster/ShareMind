@@ -106,10 +106,6 @@
           textInput.style.position = 'absolute';
           textInput.style.left = (e.clientX) + 'px';
           textInput.style.top = (e.clientY) + 'px';
-          console.log(e.clientX)
-          console.log(canvas.getBoundingClientRect().left)
-          console.log(e.clientX - canvas.getBoundingClientRect().left)
-          console.log(parseInt(textInput.style.left, 10))
           let drawTextCanvasPositionLeft =(e.clientX - canvas.getBoundingClientRect().left) + 'px'
           let drawTextCanvasPositionTop = (e.clientY - canvas.getBoundingClientRect().top) + 'px'
 
