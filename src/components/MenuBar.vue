@@ -9,14 +9,30 @@
     </v-app-bar-title>
     <v-spacer/>
     <span class="mr-2">
-			<router-link to="/login">로그인</router-link>
+      <span class="mr-2" v-if="token !== null">
+			  안녕하세요! {{id}} | <span @click="logout">logout</span>
+		  </span>
+      <router-link to="/login" v-if="token === null">로그인</router-link>
 		</span>
   </v-app-bar>
 </template>
 
 <script>
 export default {
-  name: "MenuBar"
+  name: "MenuBar",
+  data:() => ({
+    token: localStorage.getItem('token'),
+    id: localStorage.getItem('id')
+  }),
+
+  methods: {
+    logout() {
+      localStorage.removeItem("token");
+      localStorage.removeItem("inviteCode")
+      localStorage.removeItem('id')
+      this.token = null;
+    }
+  }
 }
 </script>
 

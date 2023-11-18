@@ -25,7 +25,7 @@ const routes = [
         component: Register,
       },
       {
-        path: '/note',
+        path: '/note/:room',
         name: 'note',
         component: Note,
       },

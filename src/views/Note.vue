@@ -25,40 +25,77 @@
 
 <script>
   import NotePallet from "@/components/NotePallet";
+  import mqMixin from "@/mixins/mq";
 
   export default {
     components:{
       NotePallet,
     },
     name: "Note",
+    mixins: [mqMixin],
     data() {
       return {
         isDrawing: false,
         lastX: 0,
         lastY: 0,
         color: "rgb(0,0,0)",
+        roomName: 'room1',
         pointSize: 2,
         isEraserMode: false,
-        isLineDrawingMode: false,
-        isTextMode: false,
         modeCode:0,
         lineStartX: 0,
         lineStartY: 0,
         font: '14px sans-serif',
-        drawEvent: {
-          eventType: "draw",
-          startX: "", //this.lastX,
-          startY: "", //this.lastY,
-          endX: "", //e.offsetX,
-          endY: "", //e.offsetY,
-          color: this.isEraserMode ? "rgba(255, 255, 255, 255)" : this.color,
-          lineWidth: "", //pointSize,
-          clientId: "", //clientId,
-          timestamp: Date.now()
-        }
+        localMq: null,
+        isSync: false,
       };
     },
+    created() {
+      this.roomName = this.$route.params.room ? this.$route.params.room : 'room'
+    },
     methods: {
+      onMqConnect(mqClient) {
+        if(!mqClient)
+          return;
+        this.localMq = mqClient
+
+        if (!this.isSync){
+          const userData = JSON.stringify({
+            action: 'userSync'
+          })
+          this.publishMQ('', userData)
+          this.isSync = !this.isSync
+        }
+        this.localMq.subscribe(`/topic/rooms.${this.roomName}`, message => {
+          if(message.body) {
+            try {
+              const body = JSON.parse(message.body)
+              if(body['action'])
+                this.onAction(body['action'], body['data'])
+            } catch (e) {
+              console.error(e)
+            }
+          }
+        })
+      },
+      onAction(action, data) {
+        switch(action) {
+          case 'pen':
+            this.penRender(data['startX'], data['startY'], data['endX'], data['endY'], data['color'], data['lineWidth']);
+            break;
+          case 'text':
+            this.textRender(data['text'], data['x'], data['y']);
+            break;
+          case 'image':
+            this.imgUploadRender(data['image']);
+            break;
+          case 'userSync':
+            this.syncCanvas();
+          default:
+            console.log(`unknown action : ${action}`)
+            break;
+        }
+      },
       startDrawing(e) {
         this.isDrawing = true;
         [this.lastX, this.lastY] = [e.offsetX, e.offsetY];
@@ -66,121 +103,112 @@
       },
       draw(e) {
         if (!this.isDrawing) return;
-        const canvas = this.$refs.canvas;
-        const ctx = canvas.getContext("2d");
-
-        ctx.strokeStyle = this.isEraserMode ? "rgba(255, 255, 255, 255)" : this.color;
-        ctx.lineWidth = this.pointSize;
-        ctx.lineJoin = "round";
-        ctx.lineCap = "round";
-
-        ctx.beginPath();
-        ctx.moveTo(this.lastX, this.lastY);
-        ctx.lineTo(e.offsetX, e.offsetY);
-        if ((this.modeCode === 0 || this.modeCode === 1)) {
-          ctx.stroke();
+        if (this.modeCode === 'pen'||this.modeCode === 'eraser'){
+          const penData = JSON.stringify({
+            action: 'pen',
+            data: {
+              startX: this.lastX,
+              startY: this.lastY,
+              endX: e.offsetX,
+              endY: e.offsetY,
+              color: this.isEraserMode ? "rgba(255, 255, 255, 255)" : this.color,
+              lineWidth: this.pointSize,
+            }
+          })
+          this.publishMQ(e, penData)
         }
-        [this.lastX, this.lastY] = [e.offsetX, e.offsetY];
       },
       stopDrawing(e) {
         if (!this.isDrawing) return;
-        const canvas = this.$refs.canvas;
-        const ctx = canvas.getContext("2d");
-
-        if (this.isLineDrawingMode === true) {
-          ctx.strokeStyle = this.isEraserMode ? "rgba(255, 255, 255, 255)" : this.color;
-          ctx.lineWidth = this.pointSize;
-          ctx.lineJoin = "round";
-          ctx.lineCap = "round";
-
-          ctx.beginPath();
-          ctx.moveTo(this.lineStartX, this.lineStartY);
-          ctx.lineTo(e.offsetX, e.offsetY);
-          ctx.stroke();
-        }
-
-        if (this.isTextMode === true) {
-          console.log("in txtMode")
-          const textInput = document.createElement('input');
-          textInput.type = 'text';
-          textInput.style.position = 'absolute';
-          textInput.style.left = (e.clientX) + 'px';
-          textInput.style.top = (e.clientY) + 'px';
-          let drawTextCanvasPositionLeft =(e.clientX - canvas.getBoundingClientRect().left) + 'px'
-          let drawTextCanvasPositionTop = (e.clientY - canvas.getBoundingClientRect().top) + 'px'
-
-          textInput.onkeydown = (event) => {
-            if (event.key === 'Enter') {
-              this.drawTextOnCanvas(textInput.value, parseInt(drawTextCanvasPositionLeft, 10), parseInt(drawTextCanvasPositionTop, 10));
-              document.body.removeChild(textInput);
-              this.isDrawing = false;
+        if (this.modeCode === 'line') {
+          const penData = JSON.stringify({
+            action: 'pen',
+            data: {
+              startX: this.lastX,
+              startY: this.lastY,
+              endX: e.offsetX,
+              endY: e.offsetY,
+              color: this.isEraserMode ? "rgba(255, 255, 255, 255)" : this.color,
+              lineWidth: this.pointSize,
             }
-          };
-          document.body.appendChild(textInput);
-          textInput.focus();
+          })
+          this.publishMQ(e, penData)
         }
-
+        if (this.modeCode === 'text') {
+          this.drawText(e)
+        }
         this.isDrawing = false;
-      },
-
-      drawTextOnCanvas(txt, x, y) {
-        const canvas = this.$refs.canvas;
-        const ctx = canvas.getContext("2d");
-
-        ctx.textBaseline = 'top';
-        ctx.textAlign = 'left';
-        ctx.font = this.font;
-        ctx.fillText(txt, x-4 , y-4);
       },
       outDrawing(){
         this.isDrawing = false
-        this.isTextMode = false
-        this.isLineDrawingMode = false
+      },
+
+      publishMQ(e, data){
+        if (this.localMq) {
+          this.localMq.publish({ destination: `/topic/rooms.${this.roomName}`, body: data });
+        }
+        [this.lastX, this.lastY] = [e.offsetX, e.offsetY];
       },
       selectMode(num){
         switch(num){
+          case 0:
+            this.isEraserMode = true
+            this.modeCode='eraser'
+            break
           case 1: //연필 모드
-            console.log("penMode")
             this.isEraserMode = false
-            this.isLineDrawingMode = false
-            this.isTextMode = false
-            this.modeCode=1
+            this.modeCode='pen'
             break
           case 2:
-            console.log("liMode")
             this.isEraserMode = false
-            this.isLineDrawingMode = true
-            this.isTextMode = false
-            this.modeCode=2
+            this.modeCode='line'
             break
           case 3:
-            console.log("textMode")
             this.isEraserMode = false
-            this.isLineDrawingMode = false
-            this.isTextMode = true
-            this.modeCode=3
+            this.modeCode='text'
             break
           default:  //지우개 모드
-            console.log("eMode")
             this.isEraserMode = true
-            this.isLineDrawingMode = false
-            this.isTextMode = false
-            this.modeCode=0
+            this.modeCode='eraser'
             break
         }
       },
       setColor(red, green, blue) {
         this.color = `rgb(${red}, ${green}, ${blue})`;
-        console.log(this.color)
         this.isEraserMode = false;
       },
       setPointSize(size){
         this.pointSize = size
       },
-      handleFileUpload(file) {
+      drawText(e){
         const canvas = this.$refs.canvas;
-        const ctx = canvas.getContext("2d");
+        const textInput = document.createElement('input');
+        textInput.type = 'text';
+        textInput.style.position = 'absolute';
+        textInput.style.left = (e.clientX) + 'px';
+        textInput.style.top = (e.clientY) + 'px';
+        let drawTextCanvasPositionLeft =(e.clientX - canvas.getBoundingClientRect().left) + 'px'
+        let drawTextCanvasPositionTop = (e.clientY - canvas.getBoundingClientRect().top) + 'px'
 
+        textInput.onkeydown = (event) => {
+          if (event.key === 'Enter') {
+            const textData = JSON.stringify({
+              action: 'text',
+              data: {
+                text: textInput.value,
+                x: parseInt(drawTextCanvasPositionLeft, 10),
+                y: parseInt(drawTextCanvasPositionTop, 10),
+              }
+            })
+            this.publishMQ(e, textData)
+            document.body.removeChild(textInput);
+            this.isDrawing = false;
+          }
+        };
+        document.body.appendChild(textInput);
+        textInput.focus();
+      },
+      handleFileUpload(file) {
         if (file) {
           const reader = new FileReader();
 
@@ -195,17 +223,71 @@
             }
 
             img.onload = () => {
-              // Canvas에 이미지 그리기
-              ctx.clearRect(0, 0, canvas.width, canvas.height);
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            }
-          }
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+
+              canvas.width = img.width;
+              canvas.height = img.height;
+              ctx.drawImage(img, 0, 0);
+
+              const imageURL = canvas.toDataURL('image/jpeg');
+
+              const imgData = JSON.stringify({
+                action: 'image',
+                data: {
+                  image: imageURL,
+                }
+              });
+              this.publishMQ(e, imgData);
+            };
+          };
           reader.readAsDataURL(file);
         }
       },
-      test(){
+      penRender(startX, startY, endX, endY, color, pointSize){
+        const canvas = this.$refs.canvas;
+        const ctx = canvas.getContext("2d");
 
-      }
+        ctx.strokeStyle = color;
+        ctx.lineWidth = pointSize;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+      },
+      textRender(txt, x, y) {
+        const canvas = this.$refs.canvas;
+        const ctx = canvas.getContext("2d");
+
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+        ctx.font = this.font;
+        ctx.fillText(txt, x-4 , y-4);
+      },
+      imgUploadRender(imageData){
+        const canvas = this.$refs.canvas;
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = imageData;
+      },
+      syncCanvas(){
+        const canvas = this.$refs.canvas;
+        const dataURL = canvas.toDataURL()
+        const imgData = JSON.stringify({
+          action: 'image',
+          data: {
+            image: dataURL,
+          }
+        });
+        this.publishMQ("", imgData);
+      },
     },
   }
 </script>

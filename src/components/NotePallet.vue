@@ -22,8 +22,8 @@
         <SelectColorBar @setColor="setColor" />
       </v-btn>
       <v-spacer/>
-      <v-btn icon><v-icon>mdi-account-group</v-icon>
-        <v-tooltip activator="parent" location="top">접속한 유저 확인</v-tooltip>
+      <v-btn icon @click="checkInviteCode"><v-icon>mdi-account-group</v-icon>
+        <v-tooltip activator="parent" location="top">초대 코드 확인 {{inviteCode}}</v-tooltip>
       </v-btn>
       <input type="file" ref="fileInput" class="file-upload-input" @change="uploadImg" accept=".png, .jpg">
       <v-btn icon @click="uploadImg"><v-icon>mdi-upload</v-icon>
@@ -37,6 +37,7 @@
 <script>
 import SelectColorBar from "@/components/SelectColorBar"
 import PointerSizeBar from "@/components/PointerSizeBar";
+import axios from "axios";
 
 export default {
   name: "NotePallet",
@@ -47,7 +48,8 @@ export default {
       green: 0,
       blue: 0,
       toggle: null,
-      activate: false
+      activate: false,
+      inviteCode: ""
     }
   },
   methods:{
@@ -62,6 +64,17 @@ export default {
     },
     setPointSize(size){
       this.$emit("setPointSize", size)
+    },
+    checkInviteCode(){
+      const currentURL = window.location.href;
+      const splitURL = currentURL.split('/');
+      const roomName = splitURL[splitURL.length - 1];
+      axios.get('/api/room/getInviteCode', {params: { roomName: roomName }}).then(res => {
+        const inviteCode = res.data.inviteCode;
+        alert(inviteCode)
+      }).catch(error => {
+        console.error(error);
+      });
     },
     pencilMode(){
       this.$emit('sendMode', 1)
@@ -78,7 +91,6 @@ export default {
       this.$emit('sendMode', 3)
     },
     uploadImg(){
-      console.log("click")
       const fileInput = this.$refs.fileInput;
       fileInput.click();
       const file = fileInput.files[0];
